@@ -1,0 +1,1634 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#ff6fa5">
+  <meta name="description" content="小公主，这周日一起去看电影好不好？">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23ff2f7e'/%3E%3Cpath d='M32 51S10 39 10 23c0-10 13-14 22-3 9-11 22-7 22 3 0 16-22 28-22 28Z' fill='%23fffdf8'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%23ff2f7e'/%3E%3Cpath d='M90 145S28 111 28 65c0-29 37-40 62-9 25-31 62-20 62 9 0 46-62 80-62 80Z' fill='%23fffdf8'/%3E%3C/svg%3E">
+  <title>给小公主的电影邀请</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --pink: #ff6fa5;
+      --pink-deep: #ff4d88;
+      --rose-gold: #ffb7c9;
+      --purple: #b98bff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+        "Noto Sans SC", "Helvetica Neue", sans-serif;
+      background: linear-gradient(168deg, #22103a 0%, #140a24 46%, #1d0b2e 100%);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button { font: inherit; }
+
+    .app {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    /* ---------- 3D / 2D 场景 ---------- */
+    .scene-3d {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(96, 34, 90, 0.5) 0%, transparent 46%),
+        linear-gradient(168deg, #22103a 0%, #140a24 46%, #1d0b2e 100%);
+      transition: opacity 700ms ease;
+    }
+
+    /* 爱心背后的柔光晕，让星尘更有层次 */
+    .scene-3d::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 42%;
+      width: min(74vw, 420px);
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(255, 143, 179, 0.2) 0%,
+        rgba(255, 100, 150, 0.1) 38%,
+        rgba(255, 100, 150, 0.04) 58%,
+        transparent 72%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .scene-3d canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .webgl-canvas { z-index: 2; }
+
+    .fallback-canvas {
+      z-index: 1;
+      opacity: 1;
+      transition: opacity 700ms ease, visibility 700ms ease;
+    }
+
+    .scene-fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .scene-fallback::before {
+      content: "♥";
+      color: #ff8fb3;
+      font-size: min(70vw, 430px);
+      line-height: 1;
+      filter: drop-shadow(0 0 46px rgba(255, 120, 165, 0.5)) drop-shadow(0 0 110px rgba(255, 90, 150, 0.28));
+      animation: fallbackPulse 2.4s ease-in-out infinite;
+    }
+
+    .scene-3d.is-ready .scene-fallback,
+    .scene-3d.is-ready .fallback-canvas {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .scene-3d.is-fallback-ready .scene-fallback {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    @keyframes fallbackPulse {
+      0%, 100% { transform: scale(0.96) rotate(-3deg); }
+      50% { transform: scale(1.05) rotate(3deg); }
+    }
+
+    /* ---------- 柔光光斑（bokeh） ---------- */
+    .bokeh-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(30px);
+      opacity: 0.35;
+      background: radial-gradient(circle at 35% 35%, #fff, rgba(255, 255, 255, 0));
+      animation: drift linear infinite;
+    }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      50%  { transform: translate(6vw, 4vh) scale(1.15); }
+      to   { transform: translate(0, 0) scale(1); }
+    }
+
+    /* ---------- 音乐开关 ---------- */
+    .topbar {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      right: 16px;
+      z-index: 60;
+    }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.24);
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(255, 77, 136, 0.25);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      cursor: pointer;
+      transition: transform 160ms ease;
+    }
+
+    .icon-button:active { transform: scale(0.92); }
+
+    .icon-button svg { width: 20px; height: 20px; }
+
+    /* ---------- 开场信封 ---------- */
+    .intro {
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.16), transparent 40%),
+        linear-gradient(160deg, #ff8fb2 0%, #f4457b 100%);
+      transition: opacity 500ms ease, visibility 500ms ease;
+    }
+
+    .intro.is-open {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .envelope-wrap {
+      width: min(86vw, 360px);
+      text-align: center;
+    }
+
+    .envelope {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1.38;
+      margin-bottom: 28px;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #ffd4e2;
+      box-shadow: 0 24px 50px rgba(150, 25, 70, 0.32);
+      transform: rotate(-2deg);
+    }
+
+    .envelope::before,
+    .envelope::after {
+      content: "";
+      position: absolute;
+      width: 72%;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: #fffaf0;
+      transform: rotate(45deg);
+      bottom: -53%;
+    }
+
+    .envelope::before { left: -32%; }
+    .envelope::after { right: -32%; }
+
+    .flap {
+      position: absolute;
+      z-index: 2;
+      top: -48%;
+      left: 13%;
+      width: 74%;
+      aspect-ratio: 1;
+      transform: rotate(45deg);
+      border-radius: 14px;
+      background: #fffdfc;
+    }
+
+    .seal {
+      position: absolute;
+      z-index: 4;
+      left: 50%;
+      top: 50%;
+      display: grid;
+      place-items: center;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #f0457d;
+      color: #fff;
+      font-size: 28px;
+      transform: translate(-50%, -38%);
+      box-shadow: 0 10px 22px rgba(150, 25, 70, 0.4);
+    }
+
+    .intro h1 {
+      margin: 0 0 8px;
+      color: #fff;
+      font-size: clamp(28px, 8vw, 40px);
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    .intro p {
+      margin: 0 0 22px;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 15px;
+    }
+
+    .open-button {
+      min-width: 190px;
+      min-height: 54px;
+      padding: 0 26px;
+      border: none;
+      border-radius: 999px;
+      background: #fff;
+      color: #f0457d;
+      font-weight: 800;
+      font-size: 17px;
+      cursor: pointer;
+      box-shadow: 0 14px 26px rgba(150, 25, 70, 0.3);
+      transition: transform 160ms ease;
+    }
+
+    .open-button:active { transform: scale(0.95); }
+
+    /* ---------- 邀请页：文字覆盖层 ---------- */
+    .screen { display: none; }
+
+    .invite-screen {
+      position: relative;
+      z-index: 10;
+      min-height: 100dvh;
+    }
+
+    .invite-screen.is-active { display: block; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: calc(env(safe-area-inset-top) + 5vh) 5vw 0;
+      text-align: center;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .name {
+      font-size: 7.2vw;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.12em;
+      text-shadow: 0 2px 16px rgba(255, 77, 136, 0.55),
+                   0 0 30px rgba(255, 183, 201, 0.6);
+      animation: floaty 4.5s ease-in-out infinite;
+    }
+
+    .subtitle {
+      margin-top: 2.4vh;
+      font-size: 3.9vw;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.96);
+      letter-spacing: 0.06em;
+      padding: 0.6em 1.3em;
+      background: rgba(255, 255, 255, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 6px 22px rgba(255, 77, 136, 0.25);
+    }
+
+    .detail {
+      margin-top: 2vw;
+      font-size: 3.1vw;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: 0.05em;
+    }
+
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+
+    /* ---------- 按钮区 ---------- */
+    .btn-zone {
+      position: fixed;
+      left: 0; right: 0;
+      bottom: calc(env(safe-area-inset-bottom) + 8vh);
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.4vh;
+      pointer-events: none;
+    }
+
+    .prompt {
+      min-height: 1.6em;
+      font-size: 3.8vw;
+      font-weight: 600;
+      color: #ffd9e6;
+      letter-spacing: 0.04em;
+      text-shadow: 0 2px 12px rgba(255, 47, 126, 0.5);
+      text-align: center;
+      transition: opacity 240ms ease;
+    }
+
+    .btn {
+      pointer-events: auto;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 999px;
+      transition: transform 0.16s ease, box-shadow 0.3s ease, opacity 0.5s ease;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .btn:active { transform: scale(0.95); }
+
+    .btn-yes {
+      position: relative;
+      font-size: 5.4vw;
+      color: #fff;
+      letter-spacing: 0.1em;
+      padding: 3.2vh 13vw;
+      background: linear-gradient(135deg, #ff5c9d, #ff2f7e 55%, #d65cf0);
+      box-shadow: 0 10px 30px rgba(255, 47, 126, 0.5),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      animation: breathe 2.4s ease-in-out infinite;
+      z-index: 5;
+    }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 10px 30px rgba(255, 47, 126, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+      50%      { box-shadow: 0 14px 46px rgba(255, 47, 126, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+    }
+
+    .btn-no {
+      /* 初始在按钮流内（好呀按钮正上方），首次逃逸后由 JS 改为 fixed 满屏跳动 */
+      position: static;
+      margin: 0 auto;
+      z-index: 20;
+      font-size: 3.7vw;
+      color: rgba(255, 255, 255, 0.95);
+      padding: 1.7vh 5.5vw;
+      background: rgba(255, 255, 255, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+      transition: top 0.35s cubic-bezier(.3,1.3,.4,1), left 0.35s cubic-bezier(.3,1.3,.4,1),
+                  transform 0.16s ease;
+      will-change: top, left;
+    }
+
+    .privacy-note {
+      font-size: 2.6vw;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+
+    /* ---------- 选场次弹层 ---------- */
+    .showtime-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6vw;
+      background: rgba(43, 15, 58, 0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    .showtime-overlay.is-open { opacity: 1; }
+
+    .showtime-backdrop {
+      position: absolute;
+      inset: 0;
+    }
+
+    .showtime-card {
+      position: relative;
+      width: min(100%, 420px);
+      max-height: 84vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      text-align: center;
+      padding: 5vh 6vw 4.5vh;
+      border-radius: 28px;
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(255, 235, 244, 0.96));
+      box-shadow: 0 20px 60px rgba(160, 60, 130, 0.4);
+      animation: pop 0.4s cubic-bezier(.2, 1.4, .4, 1);
+    }
+
+    .showtime-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 47, 126, 0.12);
+      color: #c2387f;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform 160ms ease;
+    }
+
+    .showtime-close:active { transform: scale(0.9); }
+
+    .showtime-emoji {
+      font-size: 10vw;
+      line-height: 1;
+      margin-bottom: 1.2vh;
+      animation: floaty 3.4s ease-in-out infinite;
+    }
+
+    .showtime-card h2 {
+      font-size: 6vw;
+      margin-bottom: 2.6vh;
+      color: #ff2f7e;
+    }
+
+    .showtime-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .showtime-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 13px 18px;
+      border: 1.5px solid rgba(255, 47, 126, 0.35);
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 180ms ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .showtime-item:active {
+      transform: scale(0.97);
+      box-shadow: 0 8px 20px rgba(255, 47, 126, 0.25);
+    }
+
+    .st-cinema {
+      font-size: 3.9vw;
+      font-weight: 600;
+      color: #a2458a;
+    }
+
+    .st-time {
+      font-size: 4.6vw;
+      font-weight: 800;
+      color: #ff2f7e;
+    }
+
+    .showtime-more {
+      margin-top: 2.2vh;
+      padding: 10px 18px;
+      border: none;
+      background: none;
+      color: #c97ba6;
+      font-size: 3.6vw;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      cursor: pointer;
+    }
+
+    @keyframes pop {
+      from { transform: scale(0.6); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* ---------- 成功页 ---------- */
+    .success-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 35;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 8vw;
+      background: rgba(120, 60, 120, 0.18);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .success-screen.is-active { display: flex; }
+
+    .success-card {
+      width: min(100%, 440px);
+      max-height: 86vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      text-align: center;
+      padding: 6vh 7vw 5vh;
+      border-radius: 28px;
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 235, 244, 0.95));
+      box-shadow: 0 20px 60px rgba(160, 60, 130, 0.35);
+      color: #c2387f;
+      animation: pop 0.5s cubic-bezier(.2, 1.4, .4, 1);
+    }
+
+    .big-heart {
+      font-size: 14vw;
+      line-height: 1.1;
+      animation: beat 1s ease-in-out infinite;
+    }
+
+    .success-title {
+      margin: 2.2vh 0 2.6vh;
+      font-size: 6.5vw;
+      line-height: 1.3;
+      color: #ff2f7e;
+    }
+
+    @keyframes beat {
+      0%, 100% { transform: scale(1); }
+      25%      { transform: scale(1.18); }
+      40%      { transform: scale(0.95); }
+      55%      { transform: scale(1.12); }
+    }
+
+    .ticket {
+      text-align: left;
+      padding: 16px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1.5px solid rgba(255, 47, 126, 0.28);
+      box-shadow: 0 8px 22px rgba(255, 47, 126, 0.14);
+    }
+
+    .ticket-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 2px dashed rgba(255, 47, 126, 0.3);
+    }
+
+    .ticket-players {
+      font-size: 4.4vw;
+      font-weight: 800;
+      color: #ff2f7e;
+    }
+
+    .ticket-stub {
+      font-size: 2.8vw;
+      font-weight: 800;
+      color: #c97ba6;
+      letter-spacing: 0.12em;
+      writing-mode: vertical-rl;
+      padding-left: 6px;
+      border-left: 2px dashed rgba(255, 47, 126, 0.3);
+    }
+
+    .ticket-grid {
+      display: grid;
+      grid-template-columns: 0.7fr 1.3fr;
+      gap: 10px 12px;
+    }
+
+    .ticket-grid dt {
+      font-size: 3vw;
+      color: #c97ba6;
+    }
+
+    .ticket-grid dd {
+      margin: 2px 0 0;
+      font-size: 3.6vw;
+      font-weight: 800;
+      color: #a2458a;
+      overflow-wrap: anywhere;
+    }
+
+    .success-note {
+      margin: 2.6vh 0 2vh;
+      font-size: 4vw;
+      line-height: 1.7;
+      color: #a2458a;
+    }
+
+    .copy-button {
+      display: block;
+      width: 100%;
+      min-height: 52px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ff5c9d, #ff2f7e 55%, #d65cf0);
+      color: #fff;
+      font-size: 4.4vw;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(255, 47, 126, 0.45);
+      transition: transform 160ms ease;
+    }
+
+    .copy-button:active { transform: scale(0.96); }
+
+    .share-status {
+      min-height: 22px;
+      margin: 12px 0 0;
+      font-size: 3.4vw;
+      line-height: 1.5;
+      color: #a2458a;
+      text-align: center;
+    }
+
+    .manual-copy {
+      width: 100%;
+      min-height: 88px;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1.5px solid rgba(255, 47, 126, 0.3);
+      border-radius: 14px;
+      background: #fff;
+      color: #a2458a;
+      font-size: 3.4vw;
+      line-height: 1.5;
+      resize: none;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    /* ---------- 庆祝纸屑 ---------- */
+    .confetti {
+      position: fixed;
+      inset: 0;
+      z-index: 34;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -4vh;
+      animation: fall linear forwards;
+    }
+
+    @keyframes fall {
+      to { transform: translateY(112vh) rotate(720deg); opacity: 0.8; }
+    }
+
+    /* ---------- 小屏 / 横屏 / 桌面适配 ---------- */
+    @media (max-width: 380px) {
+      .name { font-size: 8vw; }
+      .subtitle { font-size: 4.2vw; }
+      .detail { font-size: 3.4vw; }
+      .btn-yes { font-size: 5.8vw; }
+      .btn-no { font-size: 4.4vw; }
+      .prompt { font-size: 4.2vw; }
+    }
+
+    @media (orientation: landscape) and (max-height: 500px) {
+      .overlay { padding-top: 5vh; }
+      .name { font-size: 4.6vw; }
+      .subtitle { font-size: 2.6vw; }
+      .detail { font-size: 2.4vw; }
+      .btn-zone { bottom: 4vh; gap: 1vh; }
+      .btn-yes { font-size: 3.4vw; padding: 1.8vh 10vw; }
+      .btn-no { font-size: 3vw; padding: 1.4vh 5vw; }
+      .prompt { font-size: 3vw; }
+      .success-card { padding: 4vh 6vw; }
+      .big-heart { font-size: 8vw; }
+      .success-title { font-size: 4.6vw; }
+      .ticket-players { font-size: 3.2vw; }
+      .ticket-stub { font-size: 2.2vw; }
+      .ticket-grid dt { font-size: 2.4vw; }
+      .ticket-grid dd { font-size: 2.8vw; }
+      .success-note { font-size: 3vw; }
+      .copy-button { font-size: 3.2vw; min-height: 44px; }
+      .share-status { font-size: 2.6vw; }
+      .showtime-card h2 { font-size: 4.4vw; }
+      .st-cinema { font-size: 3vw; }
+      .st-time { font-size: 3.4vw; }
+      .showtime-more { font-size: 2.8vw; }
+    }
+
+    @media (min-width: 700px) {
+      .name { font-size: 44px; }
+      .subtitle { font-size: 20px; }
+      .detail { font-size: 16px; }
+      .btn-yes { font-size: 24px; padding: 20px 72px; }
+      .btn-no { font-size: 18px; padding: 13px 34px; }
+      .prompt { font-size: 18px; }
+      .privacy-note { font-size: 13px; }
+      .success-title { font-size: 28px; }
+      .big-heart { font-size: 64px; }
+      .success-note { font-size: 17px; }
+      .ticket-players { font-size: 19px; }
+      .ticket-stub { font-size: 13px; }
+      .ticket-grid dt { font-size: 13px; }
+      .ticket-grid dd { font-size: 15px; }
+      .copy-button { font-size: 18px; }
+      .share-status { font-size: 14px; }
+      .manual-copy { font-size: 14px; }
+      .showtime-card h2 { font-size: 26px; }
+      .st-cinema { font-size: 17px; }
+      .st-time { font-size: 19px; }
+      .showtime-more { font-size: 15px; }
+      .showtime-emoji { font-size: 44px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="scene-3d" id="scene3d" aria-hidden="true">
+      <div class="scene-fallback"></div>
+      <canvas class="fallback-canvas" id="fallbackCanvas"></canvas>
+      <div class="bokeh-layer" id="bokehLayer"></div>
+    </div>
+
+    <div class="topbar">
+      <button class="icon-button" id="soundButton" type="button" aria-label="关闭音乐" title="关闭音乐" hidden>
+        <svg id="soundOnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18 6a9 9 0 0 1 0 12"></path>
+        </svg>
+        <svg id="soundOffIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+          <path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="m22 9-6 6"></path><path d="m16 9 6 6"></path>
+        </svg>
+      </button>
+    </div>
+
+    <section class="intro" id="intro" aria-labelledby="introTitle">
+      <div class="envelope-wrap">
+        <div class="envelope" aria-hidden="true">
+          <span class="flap"></span>
+          <span class="seal">♥</span>
+        </div>
+        <h1 id="introTitle">徐露萍，请查收</h1>
+        <p>一封只给小公主的周日邀请</p>
+        <button class="open-button" id="openButton" type="button">拆开看看</button>
+      </div>
+    </section>
+
+    <section class="screen invite-screen is-active" id="inviteScreen" aria-labelledby="inviteTitle">
+      <div class="overlay">
+        <h1 class="name" id="inviteTitle">小公主 ❤</h1>
+        <p class="subtitle">这周日，一起去看电影好不好？</p>
+        <p class="detail" id="detailLine">周日 · 《八仙》 · 下沙 / 西湖上城区</p>
+      </div>
+
+      <div class="btn-zone">
+        <p class="prompt" id="prompt" role="status" aria-live="polite">所以…小公主愿意来吗？</p>
+        <button class="btn btn-no" id="declineButton" type="button">再想想</button>
+        <button class="btn btn-yes" id="acceptButton" type="button">好呀，去看电影 ❤</button>
+        <p class="privacy-note">不会记录你的访问或设备信息，决定权一直在你。</p>
+      </div>
+    </section>
+
+    <section class="screen success-screen" id="successScreen" aria-labelledby="successTitle">
+      <div class="success-card">
+        <div class="big-heart">💖</div>
+        <h2 class="success-title" id="successTitle">小公主，这周日等你呀～</h2>
+
+        <article class="ticket" aria-label="电影约会票根">
+          <div class="ticket-head">
+            <span class="ticket-players" id="ticketPlayers">徐露萍 × 赵伯虎</span>
+            <span class="ticket-stub">ADMIT TWO</span>
+          </div>
+          <dl class="ticket-grid">
+            <div><dt>日期</dt><dd id="ticketDay">周日</dd></div>
+            <div><dt>时间</dt><dd id="ticketTime">待定</dd></div>
+            <div><dt>电影</dt><dd id="ticketMovie">《八仙》</dd></div>
+            <div><dt>影院</dt><dd id="ticketCinema">待定</dd></div>
+            <div><dt>座位</dt><dd>并排的两个位置</dd></div>
+          </dl>
+        </article>
+
+        <p class="success-note" id="successNote">选好场次后，周日就等我来接你啦。</p>
+        <button class="copy-button" id="shareButton" type="button">复制好消息</button>
+        <p class="share-status" id="shareStatus" role="status" aria-live="polite"></p>
+        <textarea class="manual-copy" id="manualCopy" readonly hidden aria-label="可手动复制的分享内容"></textarea>
+      </div>
+    </section>
+
+    <div class="showtime-overlay" id="showtimeOverlay" role="dialog" aria-modal="true" aria-label="选择场次" hidden>
+      <div class="showtime-backdrop" id="showtimeBackdrop"></div>
+      <div class="showtime-card">
+        <button class="showtime-close" id="showtimeClose" type="button" aria-label="关闭">✕</button>
+        <div class="showtime-emoji">🍿</div>
+        <h2>小公主，想看哪一场？</h2>
+        <div class="showtime-list" id="showtimeList"></div>
+        <button class="showtime-more" id="showtimeMore" type="button">再看看其他场次</button>
+      </div>
+    </div>
+
+    <div class="confetti" id="confetti" aria-hidden="true" hidden></div>
+  </main>
+
+  <script>
+    /* ================= 可改配置 ================= */
+    const DATE_INVITE = {
+      yourName: "赵伯虎",
+      recipientName: "徐露萍",
+      nickname: "小公主",
+      dayLabel: "周日",
+      areas: ["下沙", "西湖上城区"],
+      movie: "《八仙》",
+      successText: "小公主，这周日等你呀～",
+      // 通知（选填）：她选定场次那一刻，用 FormSubmit 把选择发到你的邮箱。
+      // 第一次发件后 FormSubmit 会回一封「确认邮件」，点一下链接激活即可。
+      // 邮箱写在这里（页面对外公开，邮箱本身就公开无风险；无 token 可盗用）。
+      notifyEmail: "1269055794@qq.com",
+      declineLimit: Infinity,
+      showtimes: [
+        { cinema: "西湖文化广场", time: "14:10" },
+        { cinema: "国大", time: "15:00" },
+        { cinema: "来福士", time: "14:00" },
+        { cinema: "下沙金沙天街", time: "13:10" },
+        { cinema: "下沙金沙天街", time: "15:50" },
+        { cinema: "金沙印象城", time: "14:20" }
+      ],
+      history: [
+        {
+          version: "2026-08-27",
+          day: "周日",
+          areas: ["下沙", "西湖上城区"],
+          movie: "《八仙》",
+          copy: "小公主，这周日等你呀～"
+        }
+      ]
+    };
+    /* =========================================== */
+
+    const state = {
+      declineCount: 0,
+      chosenShowtime: null,
+      audioContext: null,
+      musicTimer: null,
+      musicPlaying: false,
+      musicStarted: false,
+      accepted: false,
+      scenePaused: false
+    };
+
+    const threeState = {
+      THREE: null,
+      renderer: null,
+      camera: null,
+      scene: null,
+      heartGroup: null,
+      heartPoints: null,
+      sparklePoints: null,
+      tease: 0,
+      pointerX: 0,
+      pointerY: 0
+    };
+
+    const fallbackState = {
+      canvas: document.querySelector("#fallbackCanvas"),
+      context: null,
+      width: 0,
+      height: 0,
+      pixelRatio: 1,
+      points: [],
+      started: false,
+      t: 0
+    };
+
+    const scene3d = document.querySelector("#scene3d");
+    const intro = document.querySelector("#intro");
+    const openButton = document.querySelector("#openButton");
+    const inviteScreen = document.querySelector("#inviteScreen");
+    const successScreen = document.querySelector("#successScreen");
+    const acceptButton = document.querySelector("#acceptButton");
+    const declineButton = document.querySelector("#declineButton");
+    const prompt = document.querySelector("#prompt");
+    const soundButton = document.querySelector("#soundButton");
+    const soundOnIcon = document.querySelector("#soundOnIcon");
+    const soundOffIcon = document.querySelector("#soundOffIcon");
+    const shareButton = document.querySelector("#shareButton");
+    const shareStatus = document.querySelector("#shareStatus");
+    const manualCopy = document.querySelector("#manualCopy");
+    const confetti = document.querySelector("#confetti");
+    const showtimeOverlay = document.querySelector("#showtimeOverlay");
+    const showtimeBackdrop = document.querySelector("#showtimeBackdrop");
+    const showtimeClose = document.querySelector("#showtimeClose");
+    const showtimeList = document.querySelector("#showtimeList");
+    const showtimeMore = document.querySelector("#showtimeMore");
+
+    const safeConfig = {
+      ...DATE_INVITE,
+      areas: Array.isArray(DATE_INVITE.areas) && DATE_INVITE.areas.length ? DATE_INVITE.areas : ["影院待定"],
+      showtimes: Array.isArray(DATE_INVITE.showtimes) ? DATE_INVITE.showtimes : [],
+      notifyEmail: typeof DATE_INVITE.notifyEmail === "string" ? DATE_INVITE.notifyEmail.trim() : ""
+    };
+
+    /* ---------- 柔光光斑 ---------- */
+    (function makeBokeh() {
+      const container = document.querySelector("#bokehLayer");
+      const colors = ["#ffffff", "#ffd2e6", "#e9d2ff"];
+      for (let i = 0; i < 7; i += 1) {
+        const blob = document.createElement("div");
+        blob.className = "blob";
+        const size = 16 + Math.random() * 30;
+        blob.style.width = `${size}vw`;
+        blob.style.height = `${size}vw`;
+        blob.style.left = `${Math.random() * 100}vw`;
+        blob.style.top = `${Math.random() * 100}vh`;
+        blob.style.opacity = String(0.25 + Math.random() * 0.3);
+        blob.style.background = `radial-gradient(circle at 35% 35%, ${colors[i % 3]}, rgba(255,255,255,0))`;
+        blob.style.animationDuration = `${8 + Math.random() * 10}s`;
+        blob.style.animationDelay = `${-Math.random() * 8}s`;
+        container.appendChild(blob);
+      }
+    })();
+
+    /* ---------- 3D 爱心：细密星尘粒子，心形线绕竖轴成体 ---------- */
+    function buildHeartGeometry() {
+      // x(u) = 16·sin³u，y(u) = 13cosu − 5cos2u − 2cos3u − cos4u
+      const NORM = 17;
+      const positions = [];
+      // [u点数, v点数, 半径系数, 抖动]
+      const shells = [
+        [210, 44, 1.0, 0.018],
+        [160, 34, 0.58, 0.022],
+        [110, 26, 0.28, 0.026]
+      ];
+      for (const [uCount, vCount, shell, jitter] of shells) {
+        for (let i = 0; i < uCount; i += 1) {
+          const u = (i / (uCount - 1)) * Math.PI * 2;
+          const rU = Math.pow(Math.abs(Math.sin(u)), 3) * 16;
+          const yU = 13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u);
+          const radius = rU * shell;
+          for (let j = 0; j < vCount; j += 1) {
+            const v = (j / (vCount - 1)) * Math.PI * 2;
+            const x = radius * Math.cos(v) + (Math.random() - 0.5) * jitter * 2;
+            const z = radius * Math.sin(v) + (Math.random() - 0.5) * jitter * 2;
+            const y = yU + (Math.random() - 0.5) * jitter * 2;
+            positions.push(x / NORM, y / NORM, z / NORM);
+          }
+        }
+      }
+      return new Float32Array(positions);
+    }
+
+    function loadClassicScript(url, timeout = 6500) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        const timer = window.setTimeout(() => {
+          script.remove();
+          reject(new Error(`timeout: ${url}`));
+        }, timeout);
+        script.src = url;
+        script.async = true;
+        script.onload = () => { window.clearTimeout(timer); resolve(window.THREE); };
+        script.onerror = () => { window.clearTimeout(timer); script.remove(); reject(new Error(`load failed: ${url}`)); };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadThreeFromCdn() {
+      const sources = [
+        "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.1/three.min.js"
+      ];
+      for (const source of sources) {
+        try {
+          const library = await loadClassicScript(source);
+          if (library && library.WebGLRenderer) return library;
+        } catch (error) {
+          console.warn("[3D爱心] CDN 不可用，正在尝试备用源：", source);
+        }
+      }
+      return null;
+    }
+
+    function initThreeScene(THREE) {
+      try {
+        threeState.THREE = THREE;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.domElement.className = "webgl-canvas";
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        scene3d.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0.1, 5.8);
+
+        const points = buildHeartGeometry();
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(points, 3));
+
+        // 颜色：底部玫红 → 中部亮粉 → 顶部玫瑰金，带柔和渐变
+        const roseDeep = new THREE.Color("#ff6fa5");
+        const roseMid = new THREE.Color("#ff9ec2");
+        const roseGold = new THREE.Color("#ffd4a6");
+        const colors = [];
+        const count = points.length / 3;
+        for (let i = 0; i < count; i += 1) {
+          const y = points[i * 3 + 1];
+          const mix = Math.min(1, Math.max(0, (y + 1) / 2));
+          const c = mix < 0.5 ? roseDeep.clone().lerp(roseMid, mix * 2)
+                              : roseMid.clone().lerp(roseGold, (mix - 0.5) * 2);
+          colors.push(c.r, c.g, c.b);
+        }
+        geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
+
+        const material = new THREE.PointsMaterial({
+          size: window.innerWidth < 500 ? 0.015 : 0.012,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          sizeAttenuation: true
+        });
+        const heartPoints = new THREE.Points(geometry, material);
+        const heartGroup = new THREE.Group();
+        heartGroup.add(heartPoints);
+
+        // 环绕爱心的闪星轨道
+        const sparkleCount = 60;
+        const sparklePositions = new Float32Array(sparkleCount * 3);
+        const sparkleColors = new Float32Array(sparkleCount * 3);
+        const sparkleGold = new THREE.Color("#ffe9c4");
+        const sparkleRose = new THREE.Color("#ffb1cf");
+        for (let i = 0; i < sparkleCount; i += 1) {
+          const angle = (i / sparkleCount) * Math.PI * 2;
+          const radius = 1.3 + Math.random() * 0.16;
+          const y = (Math.random() - 0.5) * 2.3;
+          sparklePositions[i * 3] = Math.cos(angle) * radius;
+          sparklePositions[i * 3 + 1] = y;
+          sparklePositions[i * 3 + 2] = Math.sin(angle) * radius;
+          const c = i % 2 === 0 ? sparkleGold : sparkleRose;
+          sparkleColors[i * 3] = c.r; sparkleColors[i * 3 + 1] = c.g; sparkleColors[i * 3 + 2] = c.b;
+        }
+        const sparkleGeometry = new THREE.BufferGeometry();
+        sparkleGeometry.setAttribute("position", new THREE.BufferAttribute(sparklePositions, 3));
+        sparkleGeometry.setAttribute("color", new THREE.BufferAttribute(sparkleColors, 3));
+        const sparkleMaterial = new THREE.PointsMaterial({
+          size: 0.028, transparent: true, opacity: 0.8, vertexColors: true,
+          blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+        });
+        const sparklePoints = new THREE.Points(sparkleGeometry, sparkleMaterial);
+        sparklePoints.position.y = 0;
+        heartGroup.add(sparklePoints);
+        scene.add(heartGroup);
+
+        threeState.renderer = renderer;
+        threeState.camera = camera;
+        threeState.scene = scene;
+        threeState.heartGroup = heartGroup;
+        threeState.heartPoints = heartPoints;
+        threeState.sparklePoints = sparklePoints;
+
+        scene3d.classList.add("is-ready");
+        resizeThreeScene();
+        animateThreeScene();
+      } catch (error) {
+        console.warn("[3D爱心] WebGL 初始化失败，已保留 2D Canvas：", error);
+      }
+    }
+
+    function resizeThreeScene() {
+      resizeFallbackCanvas();
+      if (!threeState.renderer || !threeState.camera) return;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      threeState.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      threeState.renderer.setSize(width, height);
+      threeState.camera.aspect = width / height;
+      threeState.camera.updateProjectionMatrix();
+      // 爱心放屏幕中上部，给下方按钮留空间；大小与参考版一致
+      threeState.heartGroup.position.y = 0.72;
+    }
+
+    function animateThreeScene(timestamp = performance.now()) {
+      if (!threeState.renderer || !threeState.scene || !threeState.camera) return;
+      requestAnimationFrame(animateThreeScene);
+      if (state.scenePaused) return;
+      const time = timestamp * 0.001;
+      const group = threeState.heartGroup;
+      const baseScale = 1.0;
+      const beat = 1 + Math.pow(Math.max(0, Math.sin(time * Math.PI * 1.25)), 12) * 0.07;
+      const acceptedScale = state.accepted ? 1.16 : 1;
+      const targetScale = baseScale * acceptedScale * beat;
+      group.scale.lerp(new threeState.THREE.Vector3(targetScale, targetScale, targetScale), 0.07);
+      group.rotation.y += 0.0035 + (threeState.pointerX * 0.22 - group.rotation.y * 0.02) * 0.015;
+      group.rotation.x += (-threeState.pointerY * 0.1 - group.rotation.x) * 0.02;
+      group.rotation.z = Math.sin(time * 0.6) * 0.06 + Math.sin(time * 13) * threeState.tease;
+      threeState.tease *= 0.92;
+      // 闪星环绕：稍快于爱心旋转，带呼吸闪烁
+      if (threeState.sparklePoints) {
+        threeState.sparklePoints.rotation.y = time * 0.55 + threeState.pointerX * 0.25;
+        threeState.sparklePoints.material.opacity = 0.55 + 0.4 * Math.sin(time * 3.2);
+      }
+      threeState.camera.position.z += ((state.accepted ? 4.85 : 5.8) - threeState.camera.position.z) * 0.04;
+      threeState.renderer.render(threeState.scene, threeState.camera);
+    }
+
+    /* ---------- 2D 降级：细密星尘爱心 ---------- */
+    function buildFallbackPoints() {
+      const NORM = 17;
+      const points = [];
+      const shells = [
+        [110, 18, 1.0, 0.02],
+        [80, 12, 0.58, 0.024],
+        [60, 8, 0.28, 0.03]
+      ];
+      for (const [uCount, vCount, shell, jitter] of shells) {
+        for (let i = 0; i < uCount; i += 1) {
+          const u = (i / (uCount - 1)) * Math.PI * 2;
+          const rU = Math.pow(Math.abs(Math.sin(u)), 3) * 16;
+          const yU = 13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u);
+          const radius = rU * shell;
+          for (let j = 0; j < vCount; j += 1) {
+            const v = (j / (vCount - 1)) * Math.PI * 2;
+            const x = radius * Math.cos(v) + (Math.random() - 0.5) * jitter * 2;
+            const z = radius * Math.sin(v) + (Math.random() - 0.5) * jitter * 2;
+            const y = yU + (Math.random() - 0.5) * jitter * 2;
+            points.push({ x: x / NORM, y: y / NORM, z: z / NORM });
+          }
+        }
+      }
+      return points;
+    }
+
+    function initFallbackCanvas() {
+      const canvas = fallbackState.canvas;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      fallbackState.context = context;
+      fallbackState.points = buildFallbackPoints();
+      fallbackState.started = true;
+      scene3d.classList.add("is-fallback-ready");
+      resizeFallbackCanvas();
+      animateFallbackCanvas();
+    }
+
+    function resizeFallbackCanvas() {
+      if (!fallbackState.context) return;
+      const ratio = Math.min(window.devicePixelRatio || 1, 1.7);
+      fallbackState.pixelRatio = ratio;
+      fallbackState.width = window.innerWidth;
+      fallbackState.height = window.innerHeight;
+      fallbackState.canvas.width = Math.round(fallbackState.width * ratio);
+      fallbackState.canvas.height = Math.round(fallbackState.height * ratio);
+      fallbackState.context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function animateFallbackCanvas() {
+      if (!fallbackState.started) return;
+      requestAnimationFrame(animateFallbackCanvas);
+      if (state.scenePaused || scene3d.classList.contains("is-ready")) return;
+      const context = fallbackState.context;
+      const width = fallbackState.width;
+      const height = fallbackState.height;
+      fallbackState.t += 0.016;
+      const time = fallbackState.t;
+      context.clearRect(0, 0, width, height);
+      const rotation = time * 0.5 + threeState.pointerX * 0.3;
+      const cosR = Math.cos(rotation);
+      const sinR = Math.sin(rotation);
+      const beat = 1 + Math.pow(Math.max(0, Math.sin(time * Math.PI * 1.25)), 12) * 0.07;
+      const scale = Math.min(width, height) * 0.3 * beat * (state.accepted ? 1.12 : 1);
+      const centerX = width / 2;
+      const centerY = height * 0.44;
+      context.globalCompositeOperation = "lighter";
+      for (const point of fallbackState.points) {
+        const rotatedX = point.x * cosR - point.z * sinR;
+        const px = centerX + rotatedX * scale;
+        const py = centerY - point.y * scale;
+        const mix = Math.min(1, Math.max(0, (point.y + 1) / 2));
+        let r, g, b;
+        if (mix < 0.5) {
+          const t = mix * 2;
+          r = 255 - (255 - 158) * t;
+          g = 111 + (158 - 111) * t;
+          b = 165 + (194 - 165) * t;
+        } else {
+          const t = (mix - 0.5) * 2;
+          r = 158 + (255 - 158) * t;
+          g = 158 + (212 - 158) * t;
+          b = 194 + (166 - 194) * t;
+        }
+        context.fillStyle = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},0.8)`;
+        context.beginPath();
+        context.arc(px, py, 1.1, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.globalCompositeOperation = "source-over";
+    }
+
+    async function initVisualScene() {
+      initFallbackCanvas();
+      const THREE = await loadThreeFromCdn();
+      if (THREE) initThreeScene(THREE);
+      else console.warn("[3D爱心] 所有 CDN 均不可用，当前使用 2D Canvas 降级。");
+    }
+
+    function setScenePointer(clientX, clientY) {
+      threeState.pointerX = (clientX / window.innerWidth) * 2 - 1;
+      threeState.pointerY = (clientY / window.innerHeight) * 2 - 1;
+    }
+
+    /* ---------- 渲染配置内容 ---------- */
+    function renderConfig() {
+      const areaText = safeConfig.areas.join(" / ");
+      const movie = safeConfig.movie || "待揭晓";
+      const movieName = movie.replace(/《|》/g, "");
+      document.title = `给${safeConfig.nickname}的《${movieName}》邀请`;
+      document.querySelector("#introTitle").textContent = `${safeConfig.recipientName}，请查收`;
+      document.querySelector("#inviteTitle").textContent = `${safeConfig.nickname} ❤`;
+      document.querySelector("#detailLine").textContent = `${safeConfig.dayLabel} · ${movie} · ${areaText}`;
+      document.querySelector("#ticketDay").textContent = safeConfig.dayLabel;
+      document.querySelector("#ticketMovie").textContent = movie;
+      document.querySelector("#ticketPlayers").textContent = `${safeConfig.recipientName} × ${safeConfig.yourName || "我"}`;
+      document.querySelector("#successTitle").textContent = safeConfig.successText;
+      buildShowtimeList();
+    }
+
+    function buildShowtimeList() {
+      showtimeList.replaceChildren();
+      (safeConfig.showtimes || []).forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "showtime-item";
+        const cinema = document.createElement("span");
+        cinema.className = "st-cinema";
+        cinema.textContent = item.cinema;
+        const time = document.createElement("span");
+        time.className = "st-time";
+        time.textContent = item.time;
+        button.append(cinema, time);
+        button.addEventListener("click", () => chooseShowtime(item.cinema, item.time));
+        showtimeList.appendChild(button);
+      });
+    }
+
+    /* ---------- 音乐 ---------- */
+    function setMusicUi(isPlaying, unavailable = false) {
+      state.musicPlaying = isPlaying;
+      soundOnIcon.hidden = !isPlaying;
+      soundOffIcon.hidden = isPlaying;
+      soundButton.setAttribute("aria-label", unavailable ? "音乐不可用" : isPlaying ? "关闭音乐" : "播放音乐");
+      soundButton.title = soundButton.getAttribute("aria-label");
+      soundButton.disabled = unavailable;
+    }
+
+    function playTone(ctx, destination, frequency, start, duration, gainValue) {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.05);
+    }
+
+    function scheduleMelody() {
+      const ctx = state.audioContext;
+      if (!ctx || !state.musicPlaying) return;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.2;
+      master.connect(ctx.destination);
+
+      const notes = [
+        [523.25, 0, 0.7], [659.25, 0.75, 0.7], [783.99, 1.5, 1.2],
+        [659.25, 2.85, 0.7], [587.33, 3.6, 0.7], [523.25, 4.35, 1.2],
+        [493.88, 5.75, 0.7], [523.25, 6.5, 0.7], [659.25, 7.25, 1.35],
+        [783.99, 8.8, 0.7], [659.25, 9.55, 0.7], [587.33, 10.3, 1.35]
+      ];
+      const bass = [
+        [261.63, 0, 2.8], [220.00, 3.0, 2.8], [196.00, 6.0, 2.8], [220.00, 9.0, 2.8]
+      ];
+      const start = ctx.currentTime + 0.08;
+      notes.forEach(([frequency, offset, duration]) => playTone(ctx, master, frequency, start + offset, duration, 0.16));
+      bass.forEach(([frequency, offset, duration]) => playTone(ctx, master, frequency, start + offset, duration, 0.06));
+
+      window.clearTimeout(state.musicTimer);
+      state.musicTimer = window.setTimeout(scheduleMelody, 11800);
+    }
+
+    async function startMusic() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          setMusicUi(false, true);
+          return;
+        }
+        if (!state.audioContext) state.audioContext = new AudioContextClass();
+        if (state.audioContext.state === "suspended") await state.audioContext.resume();
+        if (!state.musicPlaying) {
+          setMusicUi(true);
+          scheduleMelody();
+        }
+        state.musicStarted = true;
+      } catch (error) {
+        console.warn("[背景音乐]启动失败：", error);
+        setMusicUi(false, true);
+      }
+    }
+
+    function stopMusic() {
+      window.clearTimeout(state.musicTimer);
+      state.musicTimer = null;
+      setMusicUi(false);
+    }
+
+    function openInvitation() {
+      intro.classList.add("is-open");
+      soundButton.hidden = false;
+      startMusic();
+      window.setTimeout(() => acceptButton.focus({ preventScroll: true }), 520);
+    }
+
+    /* ---------- 「再想想」逃逸按钮 ---------- */
+    const teaseMessages = [
+      "真的不再想想吗？",
+      "哼～爆米花可以分你最大桶哦！",
+      "小公主，理理我嘛～",
+      "我等你呀，不急不急～",
+      "你忍心吗？",
+      "再拒绝我就要哭了哦 🥺",
+      "乖乖，给我一次机会嘛"
+    ];
+
+    let declineFleeing = false;
+    let declineFreed = false; // 首次逃逸后变为 fixed 自由跳动
+
+    // 首次逃逸时，把按钮从流内搬到 fixed 坐标系（保持当前视觉位置）
+    function freeDeclineButton() {
+      if (declineFreed) return;
+      declineFreed = true;
+      const rect = declineButton.getBoundingClientRect();
+      declineButton.style.position = "fixed";
+      declineButton.style.margin = "0";
+      declineButton.style.left = `${rect.left}px`;
+      declineButton.style.top = `${rect.top}px`;
+    }
+
+    function moveDeclineButton() {
+      if (declineFleeing) return;
+      declineFleeing = true;
+      state.declineCount += 1;
+      threeState.tease = 0.055;
+      declineButton.style.pointerEvents = "none";
+      // 俏皮文案：按点击次序分配不同文案，无限循环
+      const messageIndex = (state.declineCount - 1) % teaseMessages.length;
+      prompt.textContent = teaseMessages[messageIndex];
+
+      freeDeclineButton();
+
+      const pad = 10;
+      const rect = declineButton.getBoundingClientRect();
+      const width = rect.width || 100;
+      const height = rect.height || 46;
+      const yes = acceptButton.getBoundingClientRect();
+      const maxX = window.innerWidth - width - pad;
+      const maxY = window.innerHeight - height - pad;
+
+      let x = pad + Math.random() * (maxX - pad);
+      let y = pad + Math.random() * (maxY - pad);
+      for (let i = 0; i < 16; i += 1) {
+        const overlapsYes = !(x + width < yes.left - 6 || x > yes.right + 6 ||
+                              y + height < yes.top - 6 || y > yes.bottom + 6);
+        const nearSelf = Math.abs(x - rect.left) < 44 && Math.abs(y - rect.top) < 44;
+        if (!overlapsYes && !nearSelf) break;
+        x = pad + Math.random() * (maxX - pad);
+        y = pad + Math.random() * (maxY - pad);
+      }
+      declineButton.style.left = `${x}px`;
+      declineButton.style.top = `${y}px`;
+      window.setTimeout(() => { declineFleeing = false; declineButton.style.pointerEvents = "auto"; }, 360);
+    }
+
+    /* ---------- 选场次 ---------- */
+    function openShowtimePanel() {
+      if (state.accepted) return;
+      showtimeOverlay.hidden = false;
+      requestAnimationFrame(() => showtimeOverlay.classList.add("is-open"));
+    }
+
+    function closeShowtimePanel() {
+      showtimeOverlay.classList.remove("is-open");
+      window.setTimeout(() => { showtimeOverlay.hidden = true; }, 240);
+    }
+
+    function chooseShowtime(cinema, time) {
+      state.chosenShowtime = cinema ? { cinema, time } : null;
+      if (state.chosenShowtime) {
+        document.querySelector("#ticketCinema").textContent = cinema;
+        document.querySelector("#ticketTime").textContent = time;
+        document.querySelector("#successNote").textContent = "就定这一场啦！票已经帮你记下，周日见～";
+      } else {
+        document.querySelector("#ticketCinema").textContent = "微信上挑";
+        document.querySelector("#ticketTime").textContent = "待定";
+        document.querySelector("#successNote").textContent = "好呀～场次我们微信上慢慢挑，周日见！";
+      }
+      notifyChoice(cinema, time);
+      closeShowtimePanel();
+      acceptInvitation();
+    }
+
+    /* ---------- 选场次通知：把她的选择发到你的邮箱（FormSubmit 中转） ---------- */
+    function notifyChoice(cinema, time) {
+      if (!safeConfig.notifyEmail) return;
+      const subject = cinema
+        ? `小公主选了：${cinema} ${time}`
+        : "小公主选了：再看看其他场次";
+      const body = `她接受了周日的电影邀请 🎬\n场次：${cinema ? `${cinema} ${time}` : "微信上再挑"}`;
+      // FormSubmit：POST 到你的专属端点，第一次会先给你发激活确认邮件
+      fetch(`https://formsubmit.co/ajax/${safeConfig.notifyEmail}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ _subject: subject, message: body })
+      }).catch(() => { /* 通知失败不打扰她 */ });
+    }
+
+    /* ---------- 同意 → 庆祝 + 成功页 ---------- */
+    function createConfetti() {
+      confetti.replaceChildren();
+      confetti.hidden = false;
+      const glyphs = ["💖", "💗", "💘", "🌹", "🎀", "✨", "💝", "🎬", "💐", "🩷"];
+      for (let i = 0; i < 42; i += 1) {
+        const piece = document.createElement("div");
+        piece.className = "confetti-piece";
+        piece.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+        piece.style.left = `${Math.random() * 100}vw`;
+        piece.style.fontSize = `${4 + Math.random() * 4}vw`;
+        piece.style.animationDuration = `${2.2 + Math.random() * 2.6}s`;
+        piece.style.animationDelay = `${Math.random() * 0.6}s`;
+        confetti.appendChild(piece);
+        window.setTimeout(() => piece.remove(), 6000);
+      }
+    }
+
+    function acceptInvitation() {
+      state.accepted = true;
+      inviteScreen.classList.remove("is-active");
+      successScreen.classList.add("is-active");
+      createConfetti();
+      window.scrollTo(0, 0);
+      window.setTimeout(() => shareButton.focus({ preventScroll: true }), 260);
+    }
+
+    /* ---------- 复制好消息 ---------- */
+    function getShareText() {
+      const movie = safeConfig.movie || "待揭晓";
+      const movieName = movie.replace(/《|》/g, "");
+      const showtimeLine = state.chosenShowtime
+        ? `${state.chosenShowtime.cinema} ${state.chosenShowtime.time}`
+        : "微信上再挑～";
+      return `周日《${movieName}》约好啦～\n场次：${showtimeLine} 🍿`;
+    }
+
+    function copyLegacy(text) {
+      const helper = document.createElement("textarea");
+      helper.value = text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      document.body.appendChild(helper);
+      helper.select();
+      const copied = document.execCommand("copy");
+      helper.remove();
+      return copied;
+    }
+
+    async function shareResult() {
+      const text = getShareText();
+      shareStatus.textContent = "";
+      manualCopy.hidden = true;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          shareStatus.textContent = "好消息已经复制好啦，去微信粘给他吧～";
+          return;
+        }
+        if (copyLegacy(text)) {
+          shareStatus.textContent = "好消息已经复制好啦，去微信粘给他吧～";
+          return;
+        }
+        throw new Error("copy unavailable");
+      } catch (error) {
+        manualCopy.value = text;
+        manualCopy.hidden = false;
+        manualCopy.focus();
+        manualCopy.select();
+        shareStatus.textContent = "长按下面的文字复制，再发给他。";
+      }
+    }
+
+    /* ---------- 事件绑定 ---------- */
+    openButton.addEventListener("click", openInvitation);
+    acceptButton.addEventListener("click", openShowtimePanel);
+    declineButton.addEventListener("click", moveDeclineButton);
+    // 触碰/按下即逃逸：手指或指针刚碰到就移走，保证永远点不中
+    declineButton.addEventListener("pointerdown", (event) => { event.preventDefault(); moveDeclineButton(); }, { passive: false });
+    declineButton.addEventListener("touchstart", (event) => { event.preventDefault(); moveDeclineButton(); }, { passive: false });
+
+    shareButton.addEventListener("click", shareResult);
+    soundButton.addEventListener("click", () => {
+      if (state.musicPlaying) stopMusic();
+      else startMusic();
+    });
+
+    showtimeMore.addEventListener("click", () => chooseShowtime(null, null));
+    showtimeClose.addEventListener("click", closeShowtimePanel);
+    showtimeBackdrop.addEventListener("click", closeShowtimePanel);
+
+    window.addEventListener("pointermove", (event) => setScenePointer(event.clientX, event.clientY), { passive: true });
+    // 桌面：鼠标接近次按钮即逃逸
+    window.addEventListener("mousemove", (event) => {
+      if (state.accepted) return;
+      const rect = declineButton.getBoundingClientRect();
+      const proximity = 26;
+      const near = event.clientX > rect.left - proximity && event.clientX < rect.right + proximity &&
+                   event.clientY > rect.top - proximity && event.clientY < rect.bottom + proximity;
+      if (near) moveDeclineButton();
+    }, { passive: true });
+    window.addEventListener("touchmove", (event) => {
+      const touch = event.touches[0];
+      if (touch) setScenePointer(touch.clientX, touch.clientY);
+    }, { passive: true });
+    window.addEventListener("resize", () => { resizeThreeScene(); }, { passive: true });
+    window.addEventListener("orientationchange", () => window.setTimeout(resizeThreeScene, 180), { passive: true });
+
+    document.addEventListener("visibilitychange", () => {
+      state.scenePaused = document.hidden;
+      if (document.hidden && state.audioContext) state.audioContext.suspend();
+      else if (!document.hidden && state.musicPlaying && state.audioContext) state.audioContext.resume();
+    });
+
+    /* ---------- 启动 ---------- */
+    renderConfig();
+    initVisualScene();
+  </script>
+</body>
+</html>
